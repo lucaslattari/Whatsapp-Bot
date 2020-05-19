@@ -37,16 +37,17 @@ def getText(element):
     except StaleElementReferenceException:
         return ''
 
-def connectToBrowser(url):
+def connectToBrowser(url, contactName):
     workingFolder = os.path.abspath(os.getcwd())
     mimeTypes = "application/zip,application/octet-stream,image/jpeg,application/vnd.ms-outlook,text/html,application/pdf"
 
     profile = webdriver.FirefoxProfile()
     profile.set_preference("browser.download.folderList", 2) #tells it not to use default Downloads directory
     profile.set_preference("browser.download.manager.showWhenStarting", False) #turns of showing download progress
-    profile.set_preference("browser.download.dir", workingFolder + '\download') #sets the directory for downloads
+    profile.set_preference("browser.download.dir", workingFolder + '\download\\' + contactName) #sets the directory for downloads
     profile.set_preference("browser.helperApps.alwaysAsk.force", False)
     profile.set_preference("browser.helperApps.neverAsk.saveToDisk", mimeTypes) #tells Firefox to automatically download the files of the selected mime-types
+    profile.set_preference("pdfjs.disabled", True); #setting pdfjs.disabled to true will prevent Firefox previewing the files.
     profile.set_preference("browser.download.manager.focusWhenStarting", False)
     profile.set_preference("browser.download.manager.useWindow", False)
     profile.set_preference("browser.download.manager.showAlertOnComplete", False)
@@ -71,14 +72,24 @@ def removeDuplicates(folder):
     list_of_files = glob.glob(folder + '/*')
     list_of_files_sorted = sorted(list_of_files, key=os.path.getctime)
 
-    if len(list_of_files_sorted) > 1:
-        newFile = list_of_files_sorted[-1]
-        oldFile = list_of_files_sorted[-2]
-        if hashfile(newFile) == hashfile(oldFile):
-            os.remove(newFile)
+    if len(list_of_files_sorted) == 0:
+        return
+
+    duplicates = []
+    newFile = list_of_files_sorted[-1]
+
+    for f in list_of_files_sorted:
+        if hashfile(newFile) == hashfile(f):
+            duplicates.append(f)
+
+    if len(duplicates) > 1:
+        os.remove(newFile)
 
 def getMostRecentFileInDownloadsFolder(folder):
     list_of_files = glob.glob(folder + '/*')
     list_of_files_sorted = sorted(list_of_files, key=os.path.getctime)
+
+    if len(list_of_files_sorted) == 0:
+        return
 
     return list_of_files_sorted[-1]

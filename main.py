@@ -5,7 +5,7 @@ from utils import connectToBrowser
 import time
 
 def main():
-    browser = connectToBrowser("https://web.whatsapp.com/")
+    browser = connectToBrowser("https://web.whatsapp.com/", 'Mariza')
 
     #writeContactList('contactList.whats')
     #sendMessageForWhatsappContact('+55 32 9943-9078', 'oi, eu sou o bot do Lucas')
