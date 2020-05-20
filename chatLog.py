@@ -86,8 +86,7 @@ def getLogOfContact(browser, contactName):
         chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[3]')
         allChildrenChatBox = chatBox.find_elements_by_xpath(".//*")
 
-        if countScrolls > 0:
-            auxLogDataList = []
+        auxLogDataList = []
         for children in allChildrenChatBox:
             #salva primeiro elemento web pra depois se mover na direção dele
             if iterations < 10:
@@ -122,9 +121,9 @@ def getLogOfContact(browser, contactName):
                                 #pra pegar o ultimo span sem filho, que é a mensagem mesmo
                                 if '<' not in getText(child) and '>' not in getText(child) and len(getText(child)) > 0:
                                     d['msg'] = getText(child)
-                                    if countScrolls == 0:
+                                    if countScrolls == 0 and d not in logDataList:
                                         addElementInList(logDataList, d)
-                                    elif d not in logDataList:
+                                    elif d not in auxLogDataList and d not in logDataList:
                                         addElementInList(auxLogDataList, d)
                                 #texto com emoji
                                 elif '<img' in getText(child) and 'emoji' in getText(child):
@@ -132,19 +131,19 @@ def getLogOfContact(browser, contactName):
                                     for grandChild in auxChild:
                                         if grandChild.tag_name == 'img' and 'emoji' in grandChild.get_attribute('class'):
                                             d['msg'] = getText(child)[:getText(child).find('<')] + " (EMOJI)"
-                                            if countScrolls == 0:
+                                            if countScrolls == 0 and d not in logDataList:
                                                 addElementInList(logDataList, d)
-                                            elif d not in logDataList:
+                                            elif d not in auxLogDataList and d not in logDataList:
                                                 addElementInList(auxLogDataList, d)
 
                         elif child.tag_name == 'img':
                             #é emoji
                             if child.get_attribute("data-plain-text") is not None and 'msg' not in d:
                                 d['msg'] = '(EMOJI)'
-                                if countScrolls == 0:
-                                    addElementInList(logDataList, d)
-                                elif d not in logDataList:
-                                    addElementInList(auxLogDataList, d)
+                            if countScrolls == 0 and d not in logDataList:
+                                addElementInList(logDataList, d)
+                            elif d not in auxLogDataList and d not in logDataList:
+                                addElementInList(auxLogDataList, d)
 
             #somente a imagem
             if children.tag_name == 'img' and 'blob:' in children.get_attribute("src"):
@@ -163,8 +162,14 @@ def getLogOfContact(browser, contactName):
 
                     d = {}
                     removeDuplicates(folderContact)
+
                     d['img'] = getMostRecentFileInDownloadsFolder(folderContact)
                     flagImg = True
+
+                    #verifica se é pdf mesmo
+                    extension = d['img'][d['img'].rfind('.'):]
+                    print('aaa', children.get_attribute("src"))
+                    input()
 
             #se adicionou uma imagem, precisa então pegar o horário de envio
             if flagImg == True:
@@ -172,9 +177,9 @@ def getLogOfContact(browser, contactName):
                     if '<' not in getText(children) and '>' not in getText(children) and len(getText(children)) > 0:
                         if re.match('[0-9][0-9]:[0-9][0-9]', getText(children)):
                             d['hour'], d['minute'] = getText(children).split(':')
-                            if countScrolls == 0:
+                            if countScrolls == 0 and d not in logDataList:
                                 addElementInList(logDataList, d)
-                            elif d not in logDataList:
+                            elif d not in auxLogDataList and d not in logDataList:
                                 addElementInList(auxLogDataList, d)
                             flagImg = False
 
@@ -182,15 +187,17 @@ def getLogOfContact(browser, contactName):
                 #procurando pdf para baixar
                 if children.get_attribute("href") is not None and children.get_attribute("href") is not '':
                     if children.get_attribute("href") == 'https://web.whatsapp.com/#' and '.pdf' in children.get_attribute("title"):
-
-                        #olhar amanhã pra entender pq a foto do atila entra aqui
                         children.click()
                         time.sleep(5)
 
                         d = {}
                         removeDuplicates(folderContact)
                         d['pdf'] = getMostRecentFileInDownloadsFolder(folderContact)
-                        flagPDF = True
+
+                        #verifica se é pdf mesmo
+                        extension = d['pdf'][d['pdf'].rfind('.'):]
+                        if extension == '.pdf':
+                            flagPDF = True
                     else:
                         #quando a mensagem é só um link
                         d = {}
@@ -203,9 +210,9 @@ def getLogOfContact(browser, contactName):
                     if '<' not in getText(children) and '>' not in getText(children) and len(getText(children)) > 0:
                         if re.match('[0-9][0-9]:[0-9][0-9]', getText(children)):
                             d['hour'], d['minute'] = getText(children).split(':')
-                            if countScrolls == 0:
+                            if countScrolls == 0 and d not in logDataList:
                                 addElementInList(logDataList, d)
-                            elif d not in logDataList:
+                            elif d not in auxLogDataList and d not in logDataList:
                                 addElementInList(auxLogDataList, d)
                             flagUrl = False
             #se adicionou um pdf, precisa então pegar o horário de envio
@@ -214,16 +221,12 @@ def getLogOfContact(browser, contactName):
                     if '<' not in getText(children) and '>' not in getText(children) and len(getText(children)) > 0:
                         if re.match('[0-9][0-9]:[0-9][0-9]', getText(children)):
                             d['hour'], d['minute'] = getText(children).split(':')
-                            if countScrolls == 0:
+                            if countScrolls == 0 and d not in logDataList:
                                 addElementInList(logDataList, d)
-                                print(logDataList)
-                            elif d not in logDataList:
+                            elif d not in auxLogDataList and d not in logDataList:
                                 addElementInList(auxLogDataList, d)
-                                print(auxLogDataList)
                             flagPDF = False
-                            print("parou")
                             print(countScrolls, iterations)
-                            input()
 
             if countScrolls == 0:
                 print(logDataList)
