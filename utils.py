@@ -73,7 +73,7 @@ def removeDuplicates(folder):
     list_of_files_sorted = sorted(list_of_files, key=os.path.getctime)
 
     if len(list_of_files_sorted) == 0:
-        return
+        return False
 
     duplicates = []
     newFile = list_of_files_sorted[-1]
@@ -84,6 +84,8 @@ def removeDuplicates(folder):
 
     if len(duplicates) > 1:
         os.remove(newFile)
+        return True
+    return False
 
 def getMostRecentFileInDownloadsFolder(folder):
     list_of_files = glob.glob(folder + '/*')

@@ -161,15 +161,10 @@ def getLogOfContact(browser, contactName):
                     time.sleep(5)
 
                     d = {}
-                    removeDuplicates(folderContact)
-
-                    d['img'] = getMostRecentFileInDownloadsFolder(folderContact)
-                    flagImg = True
-
-                    #verifica se é pdf mesmo
-                    extension = d['img'][d['img'].rfind('.'):]
-                    print('aaa', children.get_attribute("src"))
-                    input()
+                    wasRemovedDuplicate = removeDuplicates(folderContact)
+                    if wasRemovedDuplicate == False:
+                        d['img'] = getMostRecentFileInDownloadsFolder(folderContact)
+                        flagImg = True
 
             #se adicionou uma imagem, precisa então pegar o horário de envio
             if flagImg == True:
@@ -191,13 +186,14 @@ def getLogOfContact(browser, contactName):
                         time.sleep(5)
 
                         d = {}
-                        removeDuplicates(folderContact)
-                        d['pdf'] = getMostRecentFileInDownloadsFolder(folderContact)
+                        wasRemovedDuplicate = removeDuplicates(folderContact)
+                        if wasRemovedDuplicate == False:
+                            d['pdf'] = getMostRecentFileInDownloadsFolder(folderContact)
 
-                        #verifica se é pdf mesmo
-                        extension = d['pdf'][d['pdf'].rfind('.'):]
-                        if extension == '.pdf':
-                            flagPDF = True
+                            #verifica se é pdf mesmo
+                            extension = d['pdf'][d['pdf'].rfind('.'):]
+                            if extension == '.pdf':
+                                flagPDF = True
                     else:
                         #quando a mensagem é só um link
                         d = {}

@@ -18,8 +18,9 @@ def main():
     '''
     '''sendSingleMessage(browser, '+55 32 9943-9078', 'e aí meu bem? na verdade quem mandou essa mensagem nem foi eu, mas meu bot. oq é meio estranho se for pensar o.o')'''
 
-    getLogOfContact(browser, 'Mariza')
-    #browser.close()
+    #getLogOfContact(browser, 'Mariza')
+    getLogOfContact(browser, 'Mateus Lattari')
+    browser.close()
 
 if __name__ == "__main__":
     main()
