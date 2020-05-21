@@ -3,7 +3,32 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 from utils import *
 import time, logging, re, os, os.path
-import datetime
+import datetime, json
+
+def checkTag(element, tag):
+    if element is not None:
+        try:
+            if element.tag_name == tag:
+                return True
+            else:
+                return False
+        except (StaleElementReferenceException, NoSuchElementException) as e:
+            return False
+    return False
+
+def checkIfIsChildren(elementFather, elementChild):
+    if elementFather is None or elementChild is None:
+        return False
+
+    listChildren = []
+    auxChildren = elementFather.find_elements_by_xpath(".//*")
+    for child in auxChildren:
+        listChildren.append(child)
+
+    if elementChild in listChildren:
+        return True
+    else:
+        return False
 
 def checkStoppingCriterion(currentDay, currentMonth, currentYear, thresholdDay, thresholdMonth, thresholdYear):
     dateMessage = datetime.date(currentYear, currentMonth, currentDay)
@@ -42,6 +67,7 @@ def checkIfIsSpanWithoutAttributes(spanElement):
     return False
 
 def scrollToTopElement(elementArray, i):
+    print('aaa', i)
     try:
         elementArray[i].location_once_scrolled_into_view
     except (StaleElementReferenceException, NoSuchElementException) as e:
@@ -76,9 +102,12 @@ def getLogOfContact(browser, contactName):
         print(file)
         os.remove(file)
 
+    allVisitedElements = set()
+
     while(1):
         iterations = 0
-        firstWebElement = []
+        #anotar os elementos visitados
+        visitedWebElementInThisLoop = []
         flagImg = False
         flagUrl = False
         flagPDF = False
@@ -87,10 +116,10 @@ def getLogOfContact(browser, contactName):
         allChildrenChatBox = chatBox.find_elements_by_xpath(".//*")
 
         auxLogDataList = []
+        elementAlbum = None
         for children in allChildrenChatBox:
             #salva primeiro elemento web pra depois se mover na direção dele
-            if iterations < 10:
-                firstWebElement.append(children)
+            visitedWebElementInThisLoop.append(children)
             iterations += 1
 
             print(type(children))
@@ -99,128 +128,156 @@ def getLogOfContact(browser, contactName):
             except StaleElementReferenceException:
                 continue
             print(getText(children))
+            dText = None
+            if elementAlbum is not None:
+                if checkIfIsChildren(elementAlbum, children) == False:
+                    elementAlbum = None
 
-            #mensagem de texto
-            if children.tag_name == 'div':
+            if checkTag(children, 'div'):
+            #if children.tag_name == 'div':
+                if children.get_attribute('data-id') is not None:
+                    if 'album-' in children.get_attribute('data-id'):
+                        #album de fotos, pra ignorar por enquanto
+                        elementAlbum = children
+
                 if children.get_attribute("data-pre-plain-text") is not None and children.get_attribute("data-pre-plain-text") is not '':
+                    #mensagem de texto
                     #adicionando dia, hora e nome do contato
-                    d = extractContactData(children.get_attribute("data-pre-plain-text"))
+                    dText = extractContactData(children.get_attribute("data-pre-plain-text"))
 
-                    print("criterio de parada:", d['day'], d['month'], d['year'])
+                    print("criterio de parada:", dText['day'], dText['month'], dText['year'])
                     #verifica se programa chegou na data limite
-                    if checkStoppingCriterion(d['day'], d['month'], d['year'], thresholdDay, thresholdMonth, thresholdYear) == True:
-                        print(logDataList, auxLogDataList)
+                    if checkStoppingCriterion(dText['day'], dText['month'], dText['year'], thresholdDay, thresholdMonth, thresholdYear) == True:
+                        logDataList = auxLogDataList + logDataList
+                        print(logDataList)
+                        with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
+                            json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
                         return
 
                     auxChildren = children.find_elements_by_xpath(".//*")
                     for child in auxChildren:
                         #adicionando a mensagem de texto mesmo
-                        if child.tag_name == 'span':
+                        if checkTag(child, 'span'):
+                        #if child.tag_name == 'span':
                             #span com mensagem a ser salva não costuma ter atributo algum
                             if checkIfIsSpanWithoutAttributes(child):
                                 #pra pegar o ultimo span sem filho, que é a mensagem mesmo
                                 if '<' not in getText(child) and '>' not in getText(child) and len(getText(child)) > 0:
-                                    d['msg'] = getText(child)
-                                    if countScrolls == 0 and d not in logDataList:
-                                        addElementInList(logDataList, d)
-                                    elif d not in auxLogDataList and d not in logDataList:
-                                        addElementInList(auxLogDataList, d)
+                                    dText['msg'] = getText(child)
+                                    if countScrolls == 0 and dText not in logDataList:
+                                        addElementInList(logDataList, dText)
+                                    elif dText not in auxLogDataList and dText not in logDataList:
+                                        addElementInList(auxLogDataList, dText)
                                 #texto com emoji
                                 elif '<img' in getText(child) and 'emoji' in getText(child):
                                     auxChild = child.find_elements_by_xpath(".//*")
                                     for grandChild in auxChild:
-                                        if grandChild.tag_name == 'img' and 'emoji' in grandChild.get_attribute('class'):
-                                            d['msg'] = getText(child)[:getText(child).find('<')] + " (EMOJI)"
-                                            if countScrolls == 0 and d not in logDataList:
-                                                addElementInList(logDataList, d)
-                                            elif d not in auxLogDataList and d not in logDataList:
-                                                addElementInList(auxLogDataList, d)
+                                        if checkTag(grandChild, 'img') and 'emoji' in grandChild.get_attribute('class'):
+                                        #if grandChild.tag_name == 'img' and 'emoji' in grandChild.get_attribute('class'):
+                                            dText['msg'] = getText(child)[:getText(child).find('<')] + " (EMOJI)"
+                                            if countScrolls == 0 and dText not in logDataList:
+                                                addElementInList(logDataList, dText)
+                                            elif dText not in auxLogDataList and dText not in logDataList:
+                                                addElementInList(auxLogDataList, dText)
 
-                        elif child.tag_name == 'img':
+                        elif checkTag(child, 'img'):
                             #é emoji
-                            if child.get_attribute("data-plain-text") is not None and 'msg' not in d:
-                                d['msg'] = '(EMOJI)'
-                            if countScrolls == 0 and d not in logDataList:
-                                addElementInList(logDataList, d)
-                            elif d not in auxLogDataList and d not in logDataList:
-                                addElementInList(auxLogDataList, d)
+                            if child.get_attribute("data-plain-text") is not None and 'msg' not in dText:
+                                dText['msg'] = '(EMOJI)'
+                            if countScrolls == 0 and dText not in logDataList:
+                                addElementInList(logDataList, dText)
+                            elif dText not in auxLogDataList and dText not in logDataList:
+                                addElementInList(auxLogDataList, dText)
 
             #somente a imagem
-            if children.tag_name == 'img' and 'blob:' in children.get_attribute("src"):
+            if checkTag(children, 'img') and 'blob:' in children.get_attribute("src") and dText is None:
                 #pra ignorar sticker
-                if children.get_attribute("draggable") == 'true':
+                if children.get_attribute("draggable") == 'true' and checkIfIsChildren(elementAlbum, children) == False:
                     children.click()
                     time.sleep(5)
 
                     downloadElement = getElement(browser, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[4]/div')
-                    downloadElement.click()
-                    time.sleep(5)
+                    print(downloadElement)
+                    #input()
+
+                    if downloadElement is not None:
+                        print(downloadElement.get_attribute('title'))
+                        #input()
+                        if downloadElement.get_attribute('title') == 'Baixar':
+                            downloadElement.click()
+                            time.sleep(5)
+
+                            dImg = {}
+                            wasRemovedDuplicate = removeDuplicates(folderContact)
+                            print(wasRemovedDuplicate)
+                            #input()
+                            if wasRemovedDuplicate == False:
+                                dImg['img'] = getMostRecentFileInDownloadsFolder(folderContact)
+                                flagImg = True
 
                     quitElement = getElement(browser, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[5]/div')
                     quitElement.click()
                     time.sleep(5)
 
-                    d = {}
-                    wasRemovedDuplicate = removeDuplicates(folderContact)
-                    if wasRemovedDuplicate == False:
-                        d['img'] = getMostRecentFileInDownloadsFolder(folderContact)
-                        flagImg = True
-
             #se adicionou uma imagem, precisa então pegar o horário de envio
             if flagImg == True:
-                if children.tag_name == 'span' or children.tag_name == 'div':
+                if checkTag(children, 'span') or checkTag(children, 'div'):
+                #if children.tag_name == 'span' or children.tag_name == 'div':
                     if '<' not in getText(children) and '>' not in getText(children) and len(getText(children)) > 0:
                         if re.match('[0-9][0-9]:[0-9][0-9]', getText(children)):
-                            d['hour'], d['minute'] = getText(children).split(':')
-                            if countScrolls == 0 and d not in logDataList:
-                                addElementInList(logDataList, d)
-                            elif d not in auxLogDataList and d not in logDataList:
-                                addElementInList(auxLogDataList, d)
+                            dImg['hour'], dImg['minute'] = getText(children).split(':')
+                            if countScrolls == 0 and dImg not in logDataList:
+                                addElementInList(logDataList, dImg)
+                            elif dImg not in auxLogDataList and dImg not in logDataList:
+                                addElementInList(auxLogDataList, dImg)
                             flagImg = False
 
-            if children.tag_name == 'a':
+            if checkTag(children, 'a'):
+            #if children.tag_name == 'a':
                 #procurando pdf para baixar
                 if children.get_attribute("href") is not None and children.get_attribute("href") is not '':
                     if children.get_attribute("href") == 'https://web.whatsapp.com/#' and '.pdf' in children.get_attribute("title"):
                         children.click()
                         time.sleep(5)
 
-                        d = {}
+                        dPdf = {}
                         wasRemovedDuplicate = removeDuplicates(folderContact)
                         if wasRemovedDuplicate == False:
-                            d['pdf'] = getMostRecentFileInDownloadsFolder(folderContact)
+                            dPdf['pdf'] = getMostRecentFileInDownloadsFolder(folderContact)
 
                             #verifica se é pdf mesmo
-                            extension = d['pdf'][d['pdf'].rfind('.'):]
+                            extension = dPdf['pdf'][dPdf['pdf'].rfind('.'):]
                             if extension == '.pdf':
                                 flagPDF = True
                     else:
                         #quando a mensagem é só um link
-                        d = {}
-                        d['msg'] = children.get_attribute("href")
+                        dLink = {}
+                        dLink['msg'] = children.get_attribute("href")
                         flagUrl = True
 
             #se adicionou uma url, precisa então pegar o horário de envio
             if flagUrl == True:
-                if children.tag_name == 'span' or children.tag_name == 'div':
+                if checkTag(children, 'span') or checkTag(children, 'div'):
+                #if children.tag_name == 'span' or children.tag_name == 'div':
                     if '<' not in getText(children) and '>' not in getText(children) and len(getText(children)) > 0:
                         if re.match('[0-9][0-9]:[0-9][0-9]', getText(children)):
-                            d['hour'], d['minute'] = getText(children).split(':')
-                            if countScrolls == 0 and d not in logDataList:
-                                addElementInList(logDataList, d)
-                            elif d not in auxLogDataList and d not in logDataList:
-                                addElementInList(auxLogDataList, d)
+                            dLink['hour'], dLink['minute'] = getText(children).split(':')
+                            if countScrolls == 0 and dLink not in logDataList:
+                                addElementInList(logDataList, dLink)
+                            elif dLink not in auxLogDataList and dLink not in logDataList:
+                                addElementInList(auxLogDataList, dLink)
                             flagUrl = False
             #se adicionou um pdf, precisa então pegar o horário de envio
             if flagPDF == True:
-                if children.tag_name == 'span' or children.tag_name == 'div':
+                if checkTag(children, 'span') or checkTag(children, 'div'):
+                #if children.tag_name == 'span' or children.tag_name == 'div':
                     if '<' not in getText(children) and '>' not in getText(children) and len(getText(children)) > 0:
                         if re.match('[0-9][0-9]:[0-9][0-9]', getText(children)):
-                            d['hour'], d['minute'] = getText(children).split(':')
-                            if countScrolls == 0 and d not in logDataList:
-                                addElementInList(logDataList, d)
-                            elif d not in auxLogDataList and d not in logDataList:
-                                addElementInList(auxLogDataList, d)
+                            dPdf['hour'], dPdf['minute'] = getText(children).split(':')
+                            if countScrolls == 0 and dPdf not in logDataList:
+                                addElementInList(logDataList, dPdf)
+                            elif dPdf not in auxLogDataList and dPdf not in logDataList:
+                                addElementInList(auxLogDataList, dPdf)
                             flagPDF = False
                             print(countScrolls, iterations)
 

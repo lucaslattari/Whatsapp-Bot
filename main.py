@@ -5,7 +5,8 @@ from utils import connectToBrowser
 import time
 
 def main():
-    browser = connectToBrowser("https://web.whatsapp.com/", 'Mariza')
+    contato = 'Mateus Lattari'
+    browser = connectToBrowser("https://web.whatsapp.com/", contato)
 
     #writeContactList('contactList.whats')
     #sendMessageForWhatsappContact('+55 32 9943-9078', 'oi, eu sou o bot do Lucas')
@@ -18,8 +19,7 @@ def main():
     '''
     '''sendSingleMessage(browser, '+55 32 9943-9078', 'e aí meu bem? na verdade quem mandou essa mensagem nem foi eu, mas meu bot. oq é meio estranho se for pensar o.o')'''
 
-    #getLogOfContact(browser, 'Mariza')
-    getLogOfContact(browser, 'Mateus Lattari')
+    getLogOfContact(browser, contato)
     browser.close()
 
 if __name__ == "__main__":
