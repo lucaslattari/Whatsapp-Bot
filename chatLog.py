@@ -111,15 +111,24 @@ def getLogOfContact(browser, contactName):
         flagImg = False
         flagUrl = False
         flagPDF = False
+        finished = True
 
         chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[3]')
+        if chatBox is None:
+            chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[2]')
         allChildrenChatBox = chatBox.find_elements_by_xpath(".//*")
 
         auxLogDataList = []
         elementAlbum = None
         for children in allChildrenChatBox:
+            #se já tiver visitado
+            if children in allVisitedElements:
+                continue
+            finished = False
+
             #salva primeiro elemento web pra depois se mover na direção dele
             visitedWebElementInThisLoop.append(children)
+            allVisitedElements.add(children)
             iterations += 1
 
             print(type(children))
@@ -292,11 +301,19 @@ def getLogOfContact(browser, contactName):
                 input()
             '''
 
+        print("finished:", finished)
+        if finished == True:
+            logDataList = auxLogDataList + logDataList
+            print(logDataList)
+            with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
+                json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
+            return
+
         #rolar pro topo
         if countScrolls > 0:
             logDataList = auxLogDataList + logDataList
             auxLogDataList = []
 
-        scrollToTopElement(firstWebElement, 0)
+        scrollToTopElement(visitedWebElementInThisLoop, 0)
         countScrolls += 1
         time.sleep(5)

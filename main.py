@@ -5,7 +5,7 @@ from utils import connectToBrowser
 import time
 
 def main():
-    contato = 'Mateus Lattari'
+    contato = '+55 32 8845-7769'
     browser = connectToBrowser("https://web.whatsapp.com/", contato)
 
     #writeContactList('contactList.whats')
