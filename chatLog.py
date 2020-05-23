@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 from utils import *
-import time, logging, re, os, os.path
+import time, re, os, os.path
 import datetime, json
 
 def checkTag(element, tag):
@@ -67,40 +67,52 @@ def checkIfIsSpanWithoutAttributes(spanElement):
     return False
 
 def scrollToTopElement(elementArray, i):
-    print('aaa', i)
+    #print('aaa', i)
     try:
         elementArray[i].location_once_scrolled_into_view
     except (StaleElementReferenceException, NoSuchElementException) as e:
         scrollToTopElement(elementArray, i + 1)
 
+def accessContactDiv(browser, contactName):
+    contactElement = getElement(browser, '/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/div')
+    contactElementChildren = contactElement.find_elements_by_xpath(".//*")
+    father = None
+    for eachElement in contactElementChildren:
+        try:
+            tagName = eachElement.tag_name
+        except (StaleElementReferenceException, NoSuchElementException) as e:
+            continue
+        if tagName == 'span':
+            if eachElement.get_attribute('title') == contactName:
+                #achou o span, falta achar a div
+                for i in range(0, 100):
+                    if i == 0:
+                        probableFather = getElement(browser, '/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/div/div')
+                    else:
+                        probableFather = getElement(browser, '/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/div/div[' + str(i) + ']')
+
+                    if checkIfIsChildren(probableFather, eachElement) == True:
+                        father = probableFather
+    father.click()
+    time.sleep(5)
+
 def getLogOfContact(browser, contactName):
     thresholdDay = 30
     thresholdMonth = 4
     thresholdYear = 2020
-
     searchInputText = getElementIfExists(browser, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')
-    time.sleep(2)
     searchInputText.click()
     searchInputText.send_keys(contactName)
     time.sleep(5)
 
-    contactElement = getContactElement(browser)
-    contactElement.click()
-    time.sleep(5)
+    accessContactDiv(browser, contactName)
 
-    logging.basicConfig(filename='chat.log', filemode='w', format='%(message)s', level=logging.INFO)
     logDataList = []
     countScrolls = 0
 
-    folderContact = os.path.abspath(os.getcwd()) + '/download/' + contactName
-
+    folderContact = os.path.abspath(os.getcwd()) + '/download/'
     if os.path.isdir(folderContact) == False:
         os.mkdir(folderContact)
-
-    list_of_files = glob.glob(folderContact + '/*')
-    for file in list_of_files:
-        print(file)
-        os.remove(file)
 
     allVisitedElements = set()
 
@@ -134,7 +146,7 @@ def getLogOfContact(browser, contactName):
             print(type(children))
             try:
                 print(children.tag_name)
-            except StaleElementReferenceException:
+            except (StaleElementReferenceException, NoSuchElementException) as e:
                 continue
             print(getText(children))
             dText = None
@@ -161,6 +173,11 @@ def getLogOfContact(browser, contactName):
                         print(logDataList)
                         with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
                             json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
+
+                        searchInputText = getElementIfExists(browser, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')
+                        searchInputText.click()
+                        searchInputText.send_keys(Keys.CONTROL, 'a')
+                        searchInputText.send_keys(Keys.BACKSPACE)
                         return
 
                     auxChildren = children.find_elements_by_xpath(".//*")
@@ -296,10 +313,6 @@ def getLogOfContact(browser, contactName):
                 print(auxLogDataList)
 
             print(iterations)
-            '''
-            if countScrolls > 1 and iterations >= 306:
-                input()
-            '''
 
         print("finished:", finished)
         if finished == True:
@@ -307,6 +320,11 @@ def getLogOfContact(browser, contactName):
             print(logDataList)
             with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
                 json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
+
+            searchInputText = getElementIfExists(browser, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')
+            searchInputText.click()
+            searchInputText.send_keys(Keys.CONTROL, 'a')
+            searchInputText.send_keys(Keys.BACKSPACE)
             return
 
         #rolar pro topo

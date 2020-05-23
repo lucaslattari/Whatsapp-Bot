@@ -2,11 +2,14 @@ from contactList import writeContactList
 from sendMessage import sendSingleMessage, sendMultipleMessages
 from chatLog import getLogOfContact
 from utils import connectToBrowser
-import time
+import time, os.path
+
+def executeFirstTime():
+    os.system('PATH='+os.getcwd()+';%PATH%')
 
 def main():
-    contato = '+55 32 8845-7769'
-    browser = connectToBrowser("https://web.whatsapp.com/", contato)
+    contatos = 'Bibi'
+    browser = connectToBrowser("https://web.whatsapp.com/")
 
     #writeContactList('contactList.whats')
     #sendMessageForWhatsappContact('+55 32 9943-9078', 'oi, eu sou o bot do Lucas')
@@ -19,8 +22,13 @@ def main():
     '''
     '''sendSingleMessage(browser, '+55 32 9943-9078', 'e aí meu bem? na verdade quem mandou essa mensagem nem foi eu, mas meu bot. oq é meio estranho se for pensar o.o')'''
 
-    getLogOfContact(browser, contato)
+    if type(contatos) == str:
+        getLogOfContact(browser, contatos)
+    else:
+        for c in contatos:
+            getLogOfContact(browser, c)
     browser.close()
 
 if __name__ == "__main__":
+    executeFirstTime()
     main()
