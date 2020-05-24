@@ -8,7 +8,9 @@ def executeFirstTime():
     os.system('PATH='+os.getcwd()+';%PATH%')
 
 def main():
-    contatos = 'Bibi'
+    f = open("contatos.txt", "r")
+    contatos = f.read().split(",")
+
     browser = connectToBrowser("https://web.whatsapp.com/")
 
     #writeContactList('contactList.whats')
@@ -31,4 +33,8 @@ def main():
 
 if __name__ == "__main__":
     executeFirstTime()
-    main()
+    try:
+        main()
+    except:
+        print("Houve erro no programa.")
+        input()

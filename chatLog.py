@@ -97,7 +97,7 @@ def accessContactDiv(browser, contactName):
     time.sleep(5)
 
 def getLogOfContact(browser, contactName):
-    thresholdDay = 30
+    thresholdDay = 15
     thresholdMonth = 4
     thresholdYear = 2020
     searchInputText = getElementIfExists(browser, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')

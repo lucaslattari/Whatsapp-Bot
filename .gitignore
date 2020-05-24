@@ -1,5 +1,10 @@
 __pycache__/
 download/
+build/
+dist/
+exe/
 *.log
 *.whats
 *.json
+*.spec
+*.txt
