@@ -5,32 +5,7 @@ from utils import *
 import time, re, os, os.path
 import datetime, json
 
-def checkTag(element, tag):
-    if element is not None:
-        try:
-            if element.tag_name == tag:
-                return True
-            else:
-                return False
-        except (StaleElementReferenceException, NoSuchElementException) as e:
-            return False
-    return False
-
-def checkIfIsChildren(elementFather, elementChild):
-    if elementFather is None or elementChild is None:
-        return False
-
-    listChildren = []
-    auxChildren = elementFather.find_elements_by_xpath(".//*")
-    for child in auxChildren:
-        listChildren.append(child)
-
-    if elementChild in listChildren:
-        return True
-    else:
-        return False
-
-def checkStoppingCriterion(currentDay, currentMonth, currentYear, thresholdDay, thresholdMonth, thresholdYear):
+def checkStopCriterion(currentDay, currentMonth, currentYear, thresholdDay, thresholdMonth, thresholdYear):
     dateMessage = datetime.date(currentYear, currentMonth, currentDay)
     dateThreshold = datetime.date(thresholdYear, thresholdMonth, thresholdDay)
     if dateMessage <= dateThreshold:
@@ -67,7 +42,6 @@ def checkIfIsSpanWithoutAttributes(spanElement):
     return False
 
 def scrollToTopElement(elementArray, i):
-    #print('aaa', i)
     try:
         elementArray[i].location_once_scrolled_into_view
     except (StaleElementReferenceException, NoSuchElementException) as e:
@@ -96,15 +70,24 @@ def accessContactDiv(browser, contactName):
     father.click()
     time.sleep(5)
 
-def getLogOfContact(browser, contactName):
+def searchForContact(browser, contactName):
+    searchInputText = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')))
+    searchInputText.click()
+    print("Cliquei no campo de busca de contato.")
+    time.sleep(3)
+    searchInputText.send_keys(contactName)
+    print("Digitei o nome do contato: " + contactName + ".")
+    time.sleep(3)
+    searchInputText.send_keys(Keys.ENTER)
+    print("Apertei ENTER.")
+    time.sleep(3)
+
+def doWebScrapOfContact(browser, contactName):
     thresholdDay = 15
     thresholdMonth = 4
     thresholdYear = 2020
-    searchInputText = getElementIfExists(browser, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')
-    searchInputText.click()
-    searchInputText.send_keys(contactName)
-    time.sleep(5)
 
+    searchForContact(browser, contactName)
     accessContactDiv(browser, contactName)
 
     logDataList = []
@@ -138,8 +121,9 @@ def getLogOfContact(browser, contactName):
                 continue
             finished = False
 
-            #salva primeiro elemento web pra depois se mover na direção dele
+            #salva elemento web pra depois se mover na direção dele
             visitedWebElementInThisLoop.append(children)
+
             allVisitedElements.add(children)
             iterations += 1
 
@@ -168,13 +152,13 @@ def getLogOfContact(browser, contactName):
 
                     print("criterio de parada:", dText['day'], dText['month'], dText['year'])
                     #verifica se programa chegou na data limite
-                    if checkStoppingCriterion(dText['day'], dText['month'], dText['year'], thresholdDay, thresholdMonth, thresholdYear) == True:
+                    if checkStopCriterion(dText['day'], dText['month'], dText['year'], thresholdDay, thresholdMonth, thresholdYear) == True:
                         logDataList = auxLogDataList + logDataList
                         print(logDataList)
                         with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
                             json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
 
-                        searchInputText = getElementIfExists(browser, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')
+                        searchInputText = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')))
                         searchInputText.click()
                         searchInputText.send_keys(Keys.CONTROL, 'a')
                         searchInputText.send_keys(Keys.BACKSPACE)
@@ -219,7 +203,10 @@ def getLogOfContact(browser, contactName):
             if checkTag(children, 'img') and 'blob:' in children.get_attribute("src") and dText is None:
                 #pra ignorar sticker
                 if children.get_attribute("draggable") == 'true' and checkIfIsChildren(elementAlbum, children) == False:
-                    children.click()
+                    try:
+                        children.click()
+                    except:
+                        continue
                     time.sleep(5)
 
                     downloadElement = getElement(browser, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[4]/div')
@@ -241,7 +228,7 @@ def getLogOfContact(browser, contactName):
                                 dImg['img'] = getMostRecentFileInDownloadsFolder(folderContact)
                                 flagImg = True
 
-                    quitElement = getElement(browser, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[5]/div')
+                    quitElement = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[5]/div')))
                     quitElement.click()
                     time.sleep(5)
 
@@ -321,7 +308,7 @@ def getLogOfContact(browser, contactName):
             with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
                 json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
 
-            searchInputText = getElementIfExists(browser, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')
+            searchInputText = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')))
             searchInputText.click()
             searchInputText.send_keys(Keys.CONTROL, 'a')
             searchInputText.send_keys(Keys.BACKSPACE)

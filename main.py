@@ -1,8 +1,10 @@
 from contactList import writeContactList
 from sendMessage import sendSingleMessage, sendMultipleMessages
-from chatLog import getLogOfContact
+from chatLog import doWebScrapOfContact
 from utils import connectToBrowser
+from argparse import ArgumentParser
 import time, os.path
+import sys
 
 def executeFirstTime():
     os.system('PATH='+os.getcwd()+';%PATH%')
@@ -13,28 +15,53 @@ def main():
 
     browser = connectToBrowser("https://web.whatsapp.com/")
 
-    #writeContactList('contactList.whats')
-    #sendMessageForWhatsappContact('+55 32 9943-9078', 'oi, eu sou o bot do Lucas')
-    #sendMessageForWhatsappContact('Painel COVID-19', 'oi pessoal, essa mensagem foi enviada por mim usando um script em python. só pra dizer que o código funcionou rsrsrs')
-
-    '''
-    contacts = ['Bibi', '+55 32 9943-9078', 'Mariza', '+55 32 8845-6990', 'Mateus Lattari', 'Humanos do Tobi']
-    messages = ['teste do bot 1 =)', 'teste do bot 2 =)', 'teste', 'oi noslin', 'oi chateus', 'ignorem mensagens estranhas pq estou testando um código que eu fiz q manda mensagem sozinho pro whatsapp. vou fazer meu gabinete do ódio']
-    sendMultipleMessages(browser, contacts, messages)
-    '''
-    '''sendSingleMessage(browser, '+55 32 9943-9078', 'e aí meu bem? na verdade quem mandou essa mensagem nem foi eu, mas meu bot. oq é meio estranho se for pensar o.o')'''
-
     if type(contatos) == str:
-        getLogOfContact(browser, contatos)
+        doWebScrapOfLogChats(browser, contatos)
     else:
         for c in contatos:
-            getLogOfContact(browser, c)
+            doWebScrapOfLogChats(browser, c)
     browser.close()
+
+def parse_args():
+    parser = ArgumentParser(description = 'Utiliza um bot que automatiza ações do Whatsapp')
+    parser.add_argument('bot_operation', help = 'Ação a ser realizada pelo bot (\'sendmsg\' para enviar mensagem, \'scrap\' para extração de informações)')
+    parser.add_argument('--c', dest="contactsFile", help = 'Arquivo contendo lista de contatos')
+    parser.add_argument('--m', dest = 'messagesFile', required = False, help = 'Arquivo contendo lista de mensagens')
+
+    if len(sys.argv) <= 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
+    arguments = parser.parse_args()
+
+    if arguments.bot_operation == 'sendmsg' or arguments.bot_operation == 'scrap':
+        return arguments
+    else:
+        print("Error:", arguments.bot_operation, 'is not a valid operation.\nValid choices: sendmsg or scrap.')
 
 if __name__ == "__main__":
     executeFirstTime()
-    try:
-        main()
-    except:
-        print("Houve erro no programa.")
-        input()
+    args = parse_args()
+
+    browser = connectToBrowser("https://web.whatsapp.com/")
+    print("Aperte ENTER após estar conectado via QR CODE e com a página do Whatsapp carregada.")
+    input()
+
+    if args.bot_operation == 'sendmsg':
+        f = open(args.contactsFile, "r", encoding='utf-8')
+        contacts = f.read().split(",")
+        f.close()
+
+        messages = []
+        with open(args.messagesFile, "r", encoding='utf-8') as file:
+            for line in file:
+                messages.append(line)
+
+        sendMultipleMessages(browser, contacts, messages)
+    else:
+        f = open(args.contactsFile, "r", encoding='utf-8')
+        contacts = f.read().split(",")
+        f.close()
+
+        for c in contacts:
+            doWebScrapOfContact(browser, c)

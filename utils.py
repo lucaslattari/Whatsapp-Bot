@@ -1,4 +1,7 @@
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 import time, os, glob
 import hashlib
@@ -7,14 +10,8 @@ def getElement(browser, xPathString):
     try:
         element = browser.find_element_by_xpath(xPathString)
         return element
-    except NoSuchElementException:
+    except (NoSuchElementException) as e:
         return None
-
-def getElementIfExists(browser, xPathString):
-    element = getElement(browser, xPathString)
-    while(element is None):
-        element = getElement(browser, xPathString)
-    return element
 
 def getText(element):
     try:
@@ -39,8 +36,6 @@ def connectToBrowser(url):
 
     browser = webdriver.Firefox(firefox_profile = profile)
     browser.get("https://web.whatsapp.com/")
-    time.sleep(5)
-
     return browser
 
 def hashfile(path, blocksize = 65536):
@@ -80,3 +75,31 @@ def getMostRecentFileInDownloadsFolder(folder):
         return
 
     return list_of_files_sorted[-1]
+
+def checkTag(element, tag):
+    if element is not None:
+        try:
+            if element.tag_name == tag:
+                return True
+            else:
+                return False
+        except (StaleElementReferenceException, NoSuchElementException) as e:
+            return False
+    return False
+
+def checkIfIsChildren(elementFather, elementChild):
+    if elementFather is None or elementChild is None:
+        return False
+
+    listChildren = []
+    try:
+        auxChildren = elementFather.find_elements_by_xpath(".//*")
+    except (StaleElementReferenceException, NoSuchElementException) as e:
+        return False
+    for child in auxChildren:
+        listChildren.append(child)
+
+    if elementChild in listChildren:
+        return True
+    else:
+        return False

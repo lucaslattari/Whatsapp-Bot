@@ -3,10 +3,11 @@ import os, time, random, pickle, keyboard
 import os.path
 from utils import *
 
+#essa função precisa ser reescrita, não funciona
 def writeContactList(browser, contactListFilename):
     #conectando ao zap zap
     browser = connectToBrowser("https://web.whatsapp.com/")
-    
+
     #lista de contatos inicialmente vazia
     scrappedContactList = set()
 
