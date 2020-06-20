@@ -1,14 +1,15 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, MoveTargetOutOfBoundsException
 from utils import *
 import time, re, os, os.path
 import datetime, json
 
-def checkStopCriterion(currentDay, currentMonth, currentYear, thresholdDay, thresholdMonth, thresholdYear):
+def checkStopCriterionByDate(currentDay, currentMonth, currentYear, thresholdDay, thresholdMonth, thresholdYear):
     dateMessage = datetime.date(currentYear, currentMonth, currentDay)
     dateThreshold = datetime.date(thresholdYear, thresholdMonth, thresholdDay)
     if dateMessage <= dateThreshold:
+        print(dateMessage)
         return True
     else:
         return False
@@ -35,17 +36,30 @@ def extractContactData(elementText):
 
     return _dict
 
+def getSortedRecordsByTime(webElementList):
+    return sorted(webElementList, key = lambda x:x[1])
+
+
 def checkIfIsSpanWithoutAttributes(spanElement):
     if spanElement.get_attribute("class") is None or spanElement.get_attribute("class") is '':
         if spanElement.get_attribute("dir") is None or spanElement.get_attribute("dir") is '':
             return True
     return False
 
-def scrollToTopElement(elementArray, i):
-    try:
-        elementArray[i].location_once_scrolled_into_view
-    except (StaleElementReferenceException, NoSuchElementException) as e:
-        scrollToTopElement(elementArray, i + 1)
+def scrollToTopElement(webElementList):
+    sortedRecords = getSortedRecordsByTime(webElementList)
+
+    #print(sortedRecords)
+    i = 0
+    while(1):
+        try:
+            print(sortedRecords[i][1])
+            sortedRecords[i][0].location_once_scrolled_into_view
+            webElementList.clear()
+            webElementList.append([sortedRecords[i][0], sortedRecords[i][1]])
+            return
+        except (StaleElementReferenceException, NoSuchElementException) as e:
+            i += 1
 
 def accessContactDiv(browser, contactName):
     contactElement = getElement(browser, '/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/div')
@@ -82,49 +96,48 @@ def searchForContact(browser, contactName):
     print("Apertei ENTER.")
     time.sleep(3)
 
-def doWebScrapOfContact(browser, contactName):
-    thresholdDay = 15
-    thresholdMonth = 4
-    thresholdYear = 2020
+def setDownloadsFolder(downloadsFolder):
+    downloadsFolder = os.path.abspath(os.getcwd()) + '/download/'
+    if os.path.isdir(downloadsFolder) == False:
+        os.mkdir(downloadsFolder)
+
+    return downloadsFolder
+
+def getChildrenWebElementsOfChatMessageDiv(browser):
+    chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[3]')
+    if chatBox is None:
+        chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[2]')
+    return chatBox.find_elements_by_xpath(".//*")
+
+def doWebScrapOfContact(browser, contactName, thresholdDate):
+    thresholdDay, thresholdMonth, thresholdYear = thresholdDate.split("/")
 
     searchForContact(browser, contactName)
     accessContactDiv(browser, contactName)
+    downloadsFolder = setDownloadsFolder(os.path.abspath(os.getcwd()) + '/download/')
 
+    allVisitedElementsSet = set()
+    allVisitedElementsByDateList = []
     logDataList = []
     countScrolls = 0
 
-    folderContact = os.path.abspath(os.getcwd()) + '/download/'
-    if os.path.isdir(folderContact) == False:
-        os.mkdir(folderContact)
-
-    allVisitedElements = set()
-
     while(1):
         iterations = 0
-        #anotar os elementos visitados
-        visitedWebElementInThisLoop = []
         flagImg = False
         flagUrl = False
         flagPDF = False
         finished = True
-
-        chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[3]')
-        if chatBox is None:
-            chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[2]')
-        allChildrenChatBox = chatBox.find_elements_by_xpath(".//*")
-
         auxLogDataList = []
         elementAlbum = None
+
+        allChildrenChatBox = getChildrenWebElementsOfChatMessageDiv(browser)
         for children in allChildrenChatBox:
             #se já tiver visitado
-            if children in allVisitedElements:
+            if children in allVisitedElementsSet:
                 continue
+
+            allVisitedElementsSet.add(children)
             finished = False
-
-            #salva elemento web pra depois se mover na direção dele
-            visitedWebElementInThisLoop.append(children)
-
-            allVisitedElements.add(children)
             iterations += 1
 
             print(type(children))
@@ -132,14 +145,15 @@ def doWebScrapOfContact(browser, contactName):
                 print(children.tag_name)
             except (StaleElementReferenceException, NoSuchElementException) as e:
                 continue
+
             print(getText(children))
-            dText = None
+
+            dateTimeTextExtracted = None
             if elementAlbum is not None:
                 if checkIfIsChildren(elementAlbum, children) == False:
                     elementAlbum = None
 
             if checkTag(children, 'div'):
-            #if children.tag_name == 'div':
                 if children.get_attribute('data-id') is not None:
                     if 'album-' in children.get_attribute('data-id'):
                         #album de fotos, pra ignorar por enquanto
@@ -148,11 +162,11 @@ def doWebScrapOfContact(browser, contactName):
                 if children.get_attribute("data-pre-plain-text") is not None and children.get_attribute("data-pre-plain-text") is not '':
                     #mensagem de texto
                     #adicionando dia, hora e nome do contato
-                    dText = extractContactData(children.get_attribute("data-pre-plain-text"))
+                    dateTimeTextExtracted = extractContactData(children.get_attribute("data-pre-plain-text"))
 
-                    print("criterio de parada:", dText['day'], dText['month'], dText['year'])
+                    print("criterio de parada:", dateTimeTextExtracted['day'], dateTimeTextExtracted['month'], dateTimeTextExtracted['year'])
                     #verifica se programa chegou na data limite
-                    if checkStopCriterion(dText['day'], dText['month'], dText['year'], thresholdDay, thresholdMonth, thresholdYear) == True:
+                    if checkStopCriterionByDate(dateTimeTextExtracted['day'], dateTimeTextExtracted['month'], dateTimeTextExtracted['year'], int(thresholdDay), int(thresholdMonth), int(thresholdYear)) == True:
                         logDataList = auxLogDataList + logDataList
                         print(logDataList)
                         with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
@@ -173,40 +187,42 @@ def doWebScrapOfContact(browser, contactName):
                             if checkIfIsSpanWithoutAttributes(child):
                                 #pra pegar o ultimo span sem filho, que é a mensagem mesmo
                                 if '<' not in getText(child) and '>' not in getText(child) and len(getText(child)) > 0:
-                                    dText['msg'] = getText(child)
-                                    if countScrolls == 0 and dText not in logDataList:
-                                        addElementInList(logDataList, dText)
-                                    elif dText not in auxLogDataList and dText not in logDataList:
-                                        addElementInList(auxLogDataList, dText)
+                                    dateTimeTextExtracted['msg'] = getText(child)
+                                    if countScrolls == 0 and dateTimeTextExtracted not in logDataList:
+                                        addElementInList(logDataList, dateTimeTextExtracted)
+                                    elif dateTimeTextExtracted not in auxLogDataList and dateTimeTextExtracted not in logDataList:
+                                        addElementInList(auxLogDataList, dateTimeTextExtracted)
                                 #texto com emoji
                                 elif '<img' in getText(child) and 'emoji' in getText(child):
                                     auxChild = child.find_elements_by_xpath(".//*")
                                     for grandChild in auxChild:
                                         if checkTag(grandChild, 'img') and 'emoji' in grandChild.get_attribute('class'):
                                         #if grandChild.tag_name == 'img' and 'emoji' in grandChild.get_attribute('class'):
-                                            dText['msg'] = getText(child)[:getText(child).find('<')] + " (EMOJI)"
-                                            if countScrolls == 0 and dText not in logDataList:
-                                                addElementInList(logDataList, dText)
-                                            elif dText not in auxLogDataList and dText not in logDataList:
-                                                addElementInList(auxLogDataList, dText)
+                                            dateTimeTextExtracted['msg'] = getText(child)[:getText(child).find('<')] + " (EMOJI)"
+                                            if countScrolls == 0 and dateTimeTextExtracted not in logDataList:
+                                                addElementInList(logDataList, dateTimeTextExtracted)
+                                            elif dateTimeTextExtracted not in auxLogDataList and dateTimeTextExtracted not in logDataList:
+                                                addElementInList(auxLogDataList, dateTimeTextExtracted)
 
                         elif checkTag(child, 'img'):
                             #é emoji
-                            if child.get_attribute("data-plain-text") is not None and 'msg' not in dText:
-                                dText['msg'] = '(EMOJI)'
-                            if countScrolls == 0 and dText not in logDataList:
-                                addElementInList(logDataList, dText)
-                            elif dText not in auxLogDataList and dText not in logDataList:
-                                addElementInList(auxLogDataList, dText)
+                            if child.get_attribute("data-plain-text") is not None and 'msg' not in dateTimeTextExtracted:
+                                dateTimeTextExtracted['msg'] = '(EMOJI)'
+                            if countScrolls == 0 and dateTimeTextExtracted not in logDataList:
+                                addElementInList(logDataList, dateTimeTextExtracted)
+                            elif dateTimeTextExtracted not in auxLogDataList and dateTimeTextExtracted not in logDataList:
+                                addElementInList(auxLogDataList, dateTimeTextExtracted)
 
-            #somente a imagem
-            if checkTag(children, 'img') and 'blob:' in children.get_attribute("src") and dText is None:
+            #extrair somente a imagem
+            if checkTag(children, 'img') and 'blob:' in children.get_attribute("src") and dateTimeTextExtracted is None:
                 #pra ignorar sticker
                 if children.get_attribute("draggable") == 'true' and checkIfIsChildren(elementAlbum, children) == False:
                     try:
                         children.click()
                     except:
-                        continue
+                        children.location_once_scrolled_into_view
+                        time.sleep(3)
+                        children.click()
                     time.sleep(5)
 
                     downloadElement = getElement(browser, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[4]/div')
@@ -221,11 +237,11 @@ def doWebScrapOfContact(browser, contactName):
                             time.sleep(5)
 
                             dImg = {}
-                            wasRemovedDuplicate = removeDuplicates(folderContact)
+                            wasRemovedDuplicate = removeDuplicates(downloadsFolder)
                             print(wasRemovedDuplicate)
                             #input()
                             if wasRemovedDuplicate == False:
-                                dImg['img'] = getMostRecentFileInDownloadsFolder(folderContact)
+                                dImg['img'] = getMostRecentFileInDownloadsFolder(downloadsFolder)
                                 flagImg = True
 
                     quitElement = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[5]/div')))
@@ -235,7 +251,6 @@ def doWebScrapOfContact(browser, contactName):
             #se adicionou uma imagem, precisa então pegar o horário de envio
             if flagImg == True:
                 if checkTag(children, 'span') or checkTag(children, 'div'):
-                #if children.tag_name == 'span' or children.tag_name == 'div':
                     if '<' not in getText(children) and '>' not in getText(children) and len(getText(children)) > 0:
                         if re.match('[0-9][0-9]:[0-9][0-9]', getText(children)):
                             dImg['hour'], dImg['minute'] = getText(children).split(':')
@@ -245,18 +260,17 @@ def doWebScrapOfContact(browser, contactName):
                                 addElementInList(auxLogDataList, dImg)
                             flagImg = False
 
+            #procurando pdf para baixar ou só link
             if checkTag(children, 'a'):
-            #if children.tag_name == 'a':
-                #procurando pdf para baixar
                 if children.get_attribute("href") is not None and children.get_attribute("href") is not '':
                     if children.get_attribute("href") == 'https://web.whatsapp.com/#' and '.pdf' in children.get_attribute("title"):
                         children.click()
                         time.sleep(5)
 
                         dPdf = {}
-                        wasRemovedDuplicate = removeDuplicates(folderContact)
+                        wasRemovedDuplicate = removeDuplicates(downloadsFolder)
                         if wasRemovedDuplicate == False:
-                            dPdf['pdf'] = getMostRecentFileInDownloadsFolder(folderContact)
+                            dPdf['pdf'] = getMostRecentFileInDownloadsFolder(downloadsFolder)
 
                             #verifica se é pdf mesmo
                             extension = dPdf['pdf'][dPdf['pdf'].rfind('.'):]
@@ -298,27 +312,34 @@ def doWebScrapOfContact(browser, contactName):
                 print(logDataList)
             else:
                 print(auxLogDataList)
-
             print(iterations)
 
-        print("finished:", finished)
+            if dateTimeTextExtracted is not None:
+                visitedElement = [children, datetime.datetime(dateTimeTextExtracted['year'], dateTimeTextExtracted['month'], dateTimeTextExtracted['day'], dateTimeTextExtracted['hour'], dateTimeTextExtracted['minute'])]
+            else:
+                visitedElement = [children,datetime.datetime(2099, 12, 12, 12, 12)]
+            allVisitedElementsByDateList.append(visitedElement)
+
         if finished == True:
-            logDataList = auxLogDataList + logDataList
-            print(logDataList)
-            with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
-                json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
+            finished = False
 
-            searchInputText = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')))
-            searchInputText.click()
-            searchInputText.send_keys(Keys.CONTROL, 'a')
-            searchInputText.send_keys(Keys.BACKSPACE)
-            return
+            print('testando o scroll')
+            input()
 
-        #rolar pro topo
+            browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+            time.sleep(1)
+            browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+            time.sleep(2)
+            browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+            time.sleep(3)
+
+            continue
+
         if countScrolls > 0:
             logDataList = auxLogDataList + logDataList
             auxLogDataList = []
 
-        scrollToTopElement(visitedWebElementInThisLoop, 0)
+        #rolar pro topo
+        scrollToTopElement(allVisitedElementsByDateList)
         countScrolls += 1
         time.sleep(5)

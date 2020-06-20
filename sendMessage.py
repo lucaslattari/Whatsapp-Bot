@@ -37,7 +37,7 @@ def searchForContact(browser, contactName):
 def sendSingleMessage(browser, contactName, message):
     messageInputText = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div/div[4]/div/footer/div[1]/div[2]/div/div[2]')))
     messageInputText.send_keys(message)
-    print("Escrevi a mensagem. Aperte ENTER para confirmar o envio!")
+    print("Escrevi a mensagem.")
     time.sleep(3)
     messageInputText.send_keys(Keys.ENTER)
     print("Mensagem enviada!")

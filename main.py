@@ -9,24 +9,12 @@ import sys
 def executeFirstTime():
     os.system('PATH='+os.getcwd()+';%PATH%')
 
-def main():
-    f = open("contatos.txt", "r")
-    contatos = f.read().split(",")
-
-    browser = connectToBrowser("https://web.whatsapp.com/")
-
-    if type(contatos) == str:
-        doWebScrapOfLogChats(browser, contatos)
-    else:
-        for c in contatos:
-            doWebScrapOfLogChats(browser, c)
-    browser.close()
-
 def parse_args():
     parser = ArgumentParser(description = 'Utiliza um bot que automatiza ações do Whatsapp')
     parser.add_argument('bot_operation', help = 'Ação a ser realizada pelo bot (\'sendmsg\' para enviar mensagem, \'scrap\' para extração de informações)')
-    parser.add_argument('--c', dest="contactsFile", help = 'Arquivo contendo lista de contatos')
-    parser.add_argument('--m', dest = 'messagesFile', required = False, help = 'Arquivo contendo lista de mensagens')
+    parser.add_argument('-c', dest="contactsFile", help = 'Arquivo contendo lista de contatos')
+    parser.add_argument('-m', dest = 'messagesFile', required = False, help = 'Arquivo contendo lista de mensagens')
+    parser.add_argument('-d', dest="thresholdDay", help = 'Checar mensagens até essa data.')
 
     if len(sys.argv) <= 1:
         parser.print_help(sys.stderr)
@@ -39,7 +27,7 @@ def parse_args():
     else:
         print("Error:", arguments.bot_operation, 'is not a valid operation.\nValid choices: sendmsg or scrap.')
 
-if __name__ == "__main__":
+def main():
     executeFirstTime()
     args = parse_args()
 
@@ -64,4 +52,8 @@ if __name__ == "__main__":
         f.close()
 
         for c in contacts:
-            doWebScrapOfContact(browser, c)
+            doWebScrapOfContact(browser, c, args.thresholdDay)
+    browser.close()
+
+if __name__ == "__main__":
+    main()
