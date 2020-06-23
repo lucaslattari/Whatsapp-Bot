@@ -5,7 +5,7 @@ from utils import *
 import time, re, os, os.path
 import datetime, json
 
-def checkStopCriterionByDate(currentDay, currentMonth, currentYear, thresholdDay, thresholdMonth, thresholdYear):
+def checkStoppingCriterionByDate(currentDay, currentMonth, currentYear, thresholdDay, thresholdMonth, thresholdYear):
     dateMessage = datetime.date(currentYear, currentMonth, currentDay)
     dateThreshold = datetime.date(thresholdYear, thresholdMonth, thresholdDay)
     if dateMessage <= dateThreshold:
@@ -132,7 +132,7 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
 
         allChildrenChatBox = getChildrenWebElementsOfChatMessageDiv(browser)
         for children in allChildrenChatBox:
-            #se já tiver visitado
+            #se já tiver visitado, pula
             if children in allVisitedElementsSet:
                 continue
 
@@ -140,12 +140,12 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
             finished = False
             iterations += 1
 
+            #imprime informações sobre elemento web
             print(type(children))
             try:
                 print(children.tag_name)
             except (StaleElementReferenceException, NoSuchElementException) as e:
                 continue
-
             print(getText(children))
 
             dateTimeTextExtracted = None
@@ -153,6 +153,7 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
                 if checkIfIsChildren(elementAlbum, children) == False:
                     elementAlbum = None
 
+            #se for div
             if checkTag(children, 'div'):
                 if children.get_attribute('data-id') is not None:
                     if 'album-' in children.get_attribute('data-id'):
@@ -166,7 +167,7 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
 
                     print("criterio de parada:", dateTimeTextExtracted['day'], dateTimeTextExtracted['month'], dateTimeTextExtracted['year'])
                     #verifica se programa chegou na data limite
-                    if checkStopCriterionByDate(dateTimeTextExtracted['day'], dateTimeTextExtracted['month'], dateTimeTextExtracted['year'], int(thresholdDay), int(thresholdMonth), int(thresholdYear)) == True:
+                    if checkStoppingCriterionByDate(dateTimeTextExtracted['day'], dateTimeTextExtracted['month'], dateTimeTextExtracted['year'], int(thresholdDay), int(thresholdMonth), int(thresholdYear)) == True:
                         logDataList = auxLogDataList + logDataList
                         print(logDataList)
                         with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
@@ -182,7 +183,6 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
                     for child in auxChildren:
                         #adicionando a mensagem de texto mesmo
                         if checkTag(child, 'span'):
-                        #if child.tag_name == 'span':
                             #span com mensagem a ser salva não costuma ter atributo algum
                             if checkIfIsSpanWithoutAttributes(child):
                                 #pra pegar o ultimo span sem filho, que é a mensagem mesmo
@@ -197,7 +197,6 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
                                     auxChild = child.find_elements_by_xpath(".//*")
                                     for grandChild in auxChild:
                                         if checkTag(grandChild, 'img') and 'emoji' in grandChild.get_attribute('class'):
-                                        #if grandChild.tag_name == 'img' and 'emoji' in grandChild.get_attribute('class'):
                                             dateTimeTextExtracted['msg'] = getText(child)[:getText(child).find('<')] + " (EMOJI)"
                                             if countScrolls == 0 and dateTimeTextExtracted not in logDataList:
                                                 addElementInList(logDataList, dateTimeTextExtracted)
@@ -308,38 +307,37 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
                             flagPDF = False
                             print(countScrolls, iterations)
 
+            #imprime conversas até agora
             if countScrolls == 0:
                 print(logDataList)
             else:
                 print(auxLogDataList)
             print(iterations)
 
+            #salva elementos web com data para depois "rolar" na direção deles (do mais antigo ao mais novo)
             if dateTimeTextExtracted is not None:
                 visitedElement = [children, datetime.datetime(dateTimeTextExtracted['year'], dateTimeTextExtracted['month'], dateTimeTextExtracted['day'], dateTimeTextExtracted['hour'], dateTimeTextExtracted['minute'])]
             else:
                 visitedElement = [children,datetime.datetime(2099, 12, 12, 12, 12)]
             allVisitedElementsByDateList.append(visitedElement)
 
+        #se não tem mais elementos a serem analisados, é preciso "rolar" a tela do topo para que outros possam ser carregados
         if finished == True:
             finished = False
-
-            print('testando o scroll')
-            input()
-
             browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
             time.sleep(1)
             browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
             time.sleep(2)
             browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
             time.sleep(3)
-
             continue
 
+        #salvando todos os elementos web com mensagens de texto do chat
         if countScrolls > 0:
             logDataList = auxLogDataList + logDataList
             auxLogDataList = []
 
-        #rolar pro topo
+        #rolar pro elemento mais ao topo
         scrollToTopElement(allVisitedElementsByDateList)
         countScrolls += 1
         time.sleep(5)
