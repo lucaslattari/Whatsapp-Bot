@@ -12,20 +12,31 @@ def executeFirstTime():
 def parse_args():
     parser = ArgumentParser(description = 'Utiliza um bot que automatiza ações do Whatsapp')
     parser.add_argument('bot_operation', help = 'Ação a ser realizada pelo bot (\'sendmsg\' para enviar mensagem, \'scrap\' para extração de informações)')
-    parser.add_argument('-c', dest="contactsFile", help = 'Arquivo contendo lista de contatos')
-    parser.add_argument('-m', dest = 'messagesFile', required = False, help = 'Arquivo contendo lista de mensagens')
-    parser.add_argument('-d', dest="thresholdDay", help = 'Checar mensagens até essa data.')
-
-    if len(sys.argv) <= 1:
-        parser.print_help(sys.stderr)
-        sys.exit(1)
+    parser.add_argument('-c', dest="contactsFile", required = True, help = 'Arquivo contendo lista de contatos')
+    parser.add_argument('-m', dest = 'messagesFile', required = False, help = 'Arquivo contendo lista de mensagens (para sendmsg)')
+    parser.add_argument('-d', dest="thresholdDay", help = 'Checar mensagens até essa data (para scrap).')
 
     arguments = parser.parse_args()
 
     if arguments.bot_operation == 'sendmsg' or arguments.bot_operation == 'scrap':
+        if arguments.bot_operation == 'sendmsg':
+            if arguments.messagesFile is None:
+                print("ERRO: faltou informar parâmetro -m (arquivo de mensagem txt).")
+                print("Pressione qualquer coisa para encerrar...")
+                input()
+                exit()
+        elif arguments.bot_operation == 'scrap':
+            if arguments.thresholdDay is None:
+                print("ERRO: faltou informar parâmetro -d (data limite de busca).")
+                print("Pressione qualquer coisa para encerrar...")
+                input()
+                exit()
         return arguments
     else:
-        print("Error:", arguments.bot_operation, 'is not a valid operation.\nValid choices: sendmsg or scrap.')
+        print("ERRO:", arguments.bot_operation, 'não é operação válida.\nOpções válidas: sendmsg ou scrap.')
+        print("Pressione qualquer coisa para encerrar...")
+        input()
+        exit()
 
 def main():
     executeFirstTime()

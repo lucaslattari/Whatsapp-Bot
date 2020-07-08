@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, MoveTargetOutOfBoundsException
 from utils import *
 import time, re, os, os.path
@@ -92,9 +93,6 @@ def searchForContact(browser, contactName):
     searchInputText.send_keys(contactName)
     print("Digitei o nome do contato: " + contactName + ".")
     time.sleep(3)
-    searchInputText.send_keys(Keys.ENTER)
-    print("Apertei ENTER.")
-    time.sleep(3)
 
 def setDownloadsFolder(downloadsFolder):
     downloadsFolder = os.path.abspath(os.getcwd()) + '/download/'
@@ -109,6 +107,17 @@ def getChildrenWebElementsOfChatMessageDiv(browser):
         chatBox = getElement(browser, '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div/div[2]')
     return chatBox.find_elements_by_xpath(".//*")
 
+def finishScraping(browser, logDataList, auxLogDataList, contactName):
+    logDataList = auxLogDataList + logDataList
+    print(logDataList)
+    with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
+        json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
+
+    searchInputText = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')))
+    searchInputText.click()
+    searchInputText.send_keys(Keys.CONTROL, 'a')
+    searchInputText.send_keys(Keys.BACKSPACE)
+
 def doWebScrapOfContact(browser, contactName, thresholdDate):
     thresholdDay, thresholdMonth, thresholdYear = thresholdDate.split("/")
 
@@ -120,6 +129,7 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
     allVisitedElementsByDateList = []
     logDataList = []
     countScrolls = 0
+    fatherDiv = None
 
     while(1):
         iterations = 0
@@ -155,6 +165,7 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
 
             #se for div
             if checkTag(children, 'div'):
+                fatherDiv = children
                 if children.get_attribute('data-id') is not None:
                     if 'album-' in children.get_attribute('data-id'):
                         #album de fotos, pra ignorar por enquanto
@@ -168,15 +179,7 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
                     print("criterio de parada:", dateTimeTextExtracted['day'], dateTimeTextExtracted['month'], dateTimeTextExtracted['year'])
                     #verifica se programa chegou na data limite
                     if checkStoppingCriterionByDate(dateTimeTextExtracted['day'], dateTimeTextExtracted['month'], dateTimeTextExtracted['year'], int(thresholdDay), int(thresholdMonth), int(thresholdYear)) == True:
-                        logDataList = auxLogDataList + logDataList
-                        print(logDataList)
-                        with open(contactName + ".json", 'w', encoding='utf8') as jsonFilePointer:
-                            json.dump(logDataList, jsonFilePointer, ensure_ascii=False)
-
-                        searchInputText = WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.XPATH, '/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]')))
-                        searchInputText.click()
-                        searchInputText.send_keys(Keys.CONTROL, 'a')
-                        searchInputText.send_keys(Keys.BACKSPACE)
+                        finishScraping(browser, logDataList, auxLogDataList, contactName)
                         return
 
                     auxChildren = children.find_elements_by_xpath(".//*")
@@ -217,11 +220,16 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
                 #pra ignorar sticker
                 if children.get_attribute("draggable") == 'true' and checkIfIsChildren(elementAlbum, children) == False:
                     try:
+                        #todo: use webdriverwait
+                        time.sleep(5)
                         children.click()
                     except:
-                        children.location_once_scrolled_into_view
-                        time.sleep(3)
-                        children.click()
+                        fatherDiv.location_once_scrolled_into_view
+                        time.sleep(5)
+                        try:
+                            fatherDiv.click()
+                        except:
+                            continue
                     time.sleep(5)
 
                     downloadElement = getElement(browser, '/html/body/div[1]/div/span[3]/div/div/div[2]/div[1]/div[2]/div/div[4]/div')
@@ -324,11 +332,25 @@ def doWebScrapOfContact(browser, contactName, thresholdDate):
         #se não tem mais elementos a serem analisados, é preciso "rolar" a tela do topo para que outros possam ser carregados
         if finished == True:
             finished = False
-            browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+            try:
+                browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+            except:
+                finishScraping(browser, logDataList, auxLogDataList, contactName)
+                return
             time.sleep(1)
-            browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+
+            try:
+                browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+            except:
+                finishScraping(browser, logDataList, auxLogDataList, contactName)
+                return
             time.sleep(2)
-            browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+
+            try:
+                browser.find_elements_by_xpath('/html/body/div[1]/div/div/div[4]').send_keys(Keys.CONTROL + Keys.HOME)
+            except:
+                finishScraping(browser, logDataList, auxLogDataList, contactName)
+                return
             time.sleep(3)
             continue
 
